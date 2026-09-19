@@ -1,14 +1,11 @@
 import type { NextConfig } from "next";
+import { getApiServerUrl } from "./lib/env";
 
 const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
   async rewrites() {
-    const apiServerUrl = (
-      process.env.API_SERVER_URL ||
-      process.env.NEXT_PUBLIC_API_URL ||
-      "http://localhost:8080"
-    ).replace(/\/$/, "");
+    const apiServerUrl = getApiServerUrl();
 
     return [
       {

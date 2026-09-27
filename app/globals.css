@@ -607,6 +607,8 @@ a { color: inherit; }
 .reports-data-table .ui-table__cell { height: 58px; font-size: 12px; }
 .reports-note { display: flex; flex-wrap: wrap; gap: 6px; margin-top: -3px; color: #7c828a; font-size: 12px; line-height: 1.5; }
 .reports-note strong { color: #5b616e; font-weight: 600; }
+.reports-loading { display: grid; gap: 14px; min-height: 260px; align-content: center; padding: 28px; }
+.reports-loading .ui-skeleton { height: 42px; }
 @media (max-width: 760px) { .reports-heading { align-items: flex-start; flex-direction: column; gap: 13px; } .reports-controls { align-items: flex-start; flex-direction: column; padding: 17px; } .reports-controls__copy, .reports-controls__fields { width: 100%; } .reports-controls__fields .attendance-date-field { flex: 1; min-width: 0; } .reports-panel > .ui-card__content { padding: 18px; } .reports-panel-heading { flex-direction: column; margin-bottom: 17px; } .reports-chart { padding: 17px 12px 12px; } .reports-chart__bars { min-height: 185px; gap: 8px; } .reports-chart__track { height: 135px; } }
 .role-badge { display: inline-flex; min-height: 22px; align-items: center; padding: 0 8px; border: 1px solid #dbeafe; border-radius: 999px; background: #eff6ff; color: #1d4ed8; font-size: 8px; font-weight: 700; text-transform: capitalize; white-space: nowrap; }
 .role-badge--admin { border-color: #ddd6fe; background: #f5f3ff; color: #6d28d9; }

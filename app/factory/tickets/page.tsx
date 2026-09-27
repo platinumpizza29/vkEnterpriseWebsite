@@ -23,8 +23,9 @@ function statusLabel(status: string) {
   return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
 }
 
-export default function FactoryTicketsPage() {
+export default function FactoryTicketsPage({ requisitionId: requisitionIdProp }: { requisitionId?: string } = {}) {
   const session = useDashboardSession();
+  const requisitionId = requisitionIdProp ?? null;
   const hasAccess = session?.role === "factory_manager" || session?.role === "manager" || session?.role === "admin";
   const [status, setStatus] = useState<TicketStatus>("all");
   const [selectedId, setSelectedId] = useState("");
@@ -37,19 +38,31 @@ export default function FactoryTicketsPage() {
     retry: false,
   });
   const ticketsQuery = useQuery({
-    queryKey: ["dispatch-tickets", status],
+    queryKey: [session?.role === "manager" ? "manager-tickets" : "dispatch-tickets", status, requisitionId, sitesQuery.data?.map((site) => site.id)],
     queryFn: async () => {
       const query = status === "all" ? "" : `?status=${encodeURIComponent(status)}`;
+      if (requisitionId) return records(await apiGet<unknown>(`/tickets/requisition/${encodeURIComponent(requisitionId)}`, session!.token)).map(normalizeTicket).filter((ticket) => ticket.id);
+      if (session?.role === "manager") {
+        try {
+          return records(await apiGet<unknown>(`/tickets?status=${status === "all" ? "" : encodeURIComponent(status)}`, session!.token)).map(normalizeTicket).filter((ticket) => ticket.id);
+        } catch {
+          const siteIds = sitesQuery.data?.map((site) => site.id) ?? [];
+          const payloads = await Promise.all(siteIds.map((siteId) => apiGet<unknown>(`/tickets/site/${encodeURIComponent(siteId)}?status=${status === "all" ? "" : encodeURIComponent(status)}`, session!.token)));
+          const unique = new Map<string, ReturnType<typeof normalizeTicket>>();
+          payloads.flatMap((payload) => records(payload)).map(normalizeTicket).filter((ticket) => ticket.id).forEach((ticket) => unique.set(ticket.id, ticket));
+          return [...unique.values()];
+        }
+      }
       return records(await apiGet<unknown>(`/dispatch-tickets${query}`, session!.token)).map(normalizeTicket).filter((ticket) => ticket.id);
     },
-    enabled: Boolean(session?.token && hasAccess),
+    enabled: Boolean(session?.token && hasAccess && (session.role !== "manager" || requisitionId || sitesQuery.data)),
     staleTime: 60_000,
     retry: false,
   });
   const detailQuery = useQuery({
     queryKey: ["dispatch-ticket", selectedId],
     queryFn: async () => {
-      const payload = await apiGet<unknown>(`/dispatch-tickets/${encodeURIComponent(selectedId)}`, session!.token);
+      const payload = await apiGet<unknown>(`${session?.role === "manager" ? "/tickets" : "/dispatch-tickets"}/${encodeURIComponent(selectedId)}`, session!.token);
       const root = payload && typeof payload === "object" ? payload as Record<string, unknown> : {};
       return normalizeTicket((root.ticket ?? root.Ticket ?? root) as Record<string, unknown>);
     },
@@ -64,15 +77,15 @@ export default function FactoryTicketsPage() {
   const selectedTicket = detailQuery.data ?? ticketsQuery.data?.find((ticket) => ticket.id === selectedId);
 
   const columns: Array<ColumnDef<typeof ticketFeatures, DispatchTicket>> = useMemo(() => [
-    { id: "site", accessorFn: (ticket) => siteMap.get(ticket.siteId) ?? "Unknown site", header: "Destination Site", cell: (info) => info.getValue() },
+    { id: "site", accessorFn: (ticket) => siteMap.get(ticket.siteId) ?? "Unknown site", header: session?.role === "manager" ? "Site" : "Destination Site", cell: (info) => info.getValue() },
     { id: "item", accessorFn: (ticket) => itemMap.get(ticket.itemId)?.name ?? "Unknown item", header: "Item Name", cell: (info) => info.getValue() },
     { id: "quantity", accessorFn: (ticket) => ticket.dispatchedQuantity, header: "Dispatched Quantity", cell: (info) => <span className="stock-balance-value">{info.row.original.dispatchedQuantity.toLocaleString()} {itemMap.get(info.row.original.itemId)?.unit ?? ""}</span> },
     { id: "status", accessorFn: (ticket) => ticket.status, header: "Status", cell: (info) => <span className={`ticket-status ticket-status--${info.row.original.status}`}>{statusLabel(info.row.original.status)}</span> },
     { id: "date", accessorFn: (ticket) => ticket.dispatchedAt, header: "Dispatched Date", cell: (info) => formatDate(info.row.original.dispatchedAt) },
-  ], [siteMap, itemMap]);
+  ], [siteMap, itemMap, session?.role]);
   const table = useTable({ features: ticketFeatures, columns, data: ticketsQuery.data ?? [] });
 
-  if (!hasAccess) return <div className="factory-data-page"><Alert variant="destructive">Factory Manager or administrator access is required to view dispatch tickets.</Alert></div>;
+  if (!hasAccess) return <div className="factory-data-page"><Alert variant="destructive">Manager or administrator access is required to view dispatch tickets.</Alert></div>;
 
   const currentStage = (ticket: DispatchTicket) => ticket.status === "closed" ? 2 : ticket.status === "received" ? 1 : 0;
 

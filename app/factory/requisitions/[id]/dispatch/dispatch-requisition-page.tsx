@@ -59,7 +59,7 @@ function DispatchLine({
   );
 }
 
-export default function DispatchRequisitionPage({ requisitionId }: { requisitionId: string }) {
+export default function DispatchRequisitionPage({ requisitionId, basePath = "/factory", ticketEndpoint = "/dispatch-tickets/dispatch" }: { requisitionId: string; basePath?: string; ticketEndpoint?: string }) {
   const session = useDashboardSession();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -118,7 +118,7 @@ export default function DispatchRequisitionPage({ requisitionId }: { requisition
       for (const line of selectedLines) {
         setProgress((previous) => ({ ...previous, [line.id]: { status: "pending" } }));
         try {
-          await apiPost("/dispatch-tickets/dispatch", session!.token, {
+          await apiPost(ticketEndpoint, session!.token, {
             requisition_id: requisition!.id,
             site_id: requisition!.siteId,
             item_id: line.itemId,
@@ -137,11 +137,14 @@ export default function DispatchRequisitionPage({ requisitionId }: { requisition
       if (failed) return;
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["factory-requisitions", "approved"] }),
+        queryClient.invalidateQueries({ queryKey: ["manager-requisitions"] }),
+        queryClient.invalidateQueries({ queryKey: ["manager-dashboard"] }),
         queryClient.invalidateQueries({ queryKey: ["factory-requisition", requisitionId] }),
+        queryClient.invalidateQueries({ queryKey: ["tickets"] }),
         queryClient.invalidateQueries({ queryKey: ["dispatch-tickets"] }),
       ]);
       toast.success("Dispatch tickets created", { description: "All requisition lines were dispatched successfully." });
-      router.push("/factory/requisitions");
+      router.push(`${basePath}/requisitions`);
     },
   });
 
@@ -152,7 +155,7 @@ export default function DispatchRequisitionPage({ requisitionId }: { requisition
 
   return (
     <div className="factory-data-page">
-      <div className="stock-detail-breadcrumb"><Link href="/factory/requisitions">Requisitions</Link><span>/</span><span>Create dispatch</span></div>
+      <div className="stock-detail-breadcrumb"><Link href={`${basePath}/requisitions`}>Requisitions</Link><span>/</span><span>Create dispatch</span></div>
       <div className="factory-stock-heading"><div><div className="dashboard-page-heading__eyebrow">DISPATCH / NEW TICKETS</div><h1>Create dispatch tickets</h1><p>Set dispatch quantities for each approved requisition line.</p></div></div>
       {requisitionQuery.isError && <Alert variant="destructive" className="factory-stock-alert">Requisition could not be loaded: {requisitionQuery.error.message}<button type="button" onClick={() => void requisitionQuery.refetch()}>Retry</button></Alert>}
       {itemsQuery.isError && <Alert variant="destructive" className="factory-stock-alert">Inventory items could not be loaded: {itemsQuery.error.message}</Alert>}
@@ -168,7 +171,7 @@ export default function DispatchRequisitionPage({ requisitionId }: { requisition
           <div className="dispatch-lines">{lines.map((line) => <DispatchLine key={line.id} line={line} item={itemMap.get(line.itemId)} quantity={quantities[line.id] ?? String(line.quantity)} onQuantityChange={(value) => setQuantities((previous) => ({ ...previous, [line.id]: value }))} progress={progress[line.id]} onClearError={() => setQuantityErrors((previous) => ({ ...previous, [line.id]: "" }))} hubSiteId={hubSiteId} />)}{!lines.length && <div className="stock-table-unavailable">This requisition has no line items.</div>}</div>
           {Object.values(quantityErrors).some(Boolean) && <Alert variant="destructive" className="dispatch-form-error">Correct the highlighted dispatch quantity before submitting.</Alert>}
           {failedIds.length > 0 && <Alert variant="destructive" className="dispatch-form-error">{failedIds.length} line{failedIds.length === 1 ? "" : "s"} failed. Review each error, adjust quantities if needed, and retry only the failed lines.</Alert>}
-          <div className="dispatch-footer"><Link className="factory-secondary-button" href="/factory/requisitions">Cancel</Link><button className="factory-primary-button" type="button" disabled={!lines.length || dispatchMutation.isPending || requisition.status.toLowerCase() !== "approved"} onClick={() => dispatchMutation.mutate(failedIds.length ? failedIds : lines.filter((line) => progress[line.id]?.status !== "success").map((line) => line.id))}>{dispatchMutation.isPending ? "Submitting lines…" : failedIds.length ? `Retry ${failedIds.length} failed line${failedIds.length === 1 ? "" : "s"}` : "Create dispatch tickets"}</button></div>
+          <div className="dispatch-footer"><Link className="factory-secondary-button" href={`${basePath}/requisitions`}>Cancel</Link><button className="factory-primary-button" type="button" disabled={!lines.length || dispatchMutation.isPending || requisition.status.toLowerCase() !== "approved"} onClick={() => dispatchMutation.mutate(failedIds.length ? failedIds : lines.filter((line) => progress[line.id]?.status !== "success").map((line) => line.id))}>{dispatchMutation.isPending ? "Submitting lines…" : failedIds.length ? `Retry ${failedIds.length} failed line${failedIds.length === 1 ? "" : "s"}` : "Create dispatch tickets"}</button></div>
         </CardContent></Card>
       </> : null}
       {sitesQuery.isError && <Alert variant="destructive" className="factory-stock-alert">Sites could not be loaded: {sitesQuery.error.message}</Alert>}

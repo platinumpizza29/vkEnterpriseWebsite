@@ -26,8 +26,10 @@ const adminNavItems = [
 ];
 const managerNavItems = [
   { label: "Dashboard", href: "/manager/dashboard", icon: "grid" },
-  { label: "Requisitions", href: "/factory/requisitions", icon: "clipboard" },
-  { label: "Tickets", href: "/factory/tickets", icon: "truck" },
+  { label: "Requisitions", href: "/manager/requisitions", icon: "clipboard" },
+  { label: "Tickets", href: "/manager/tickets", icon: "truck" },
+  { label: "Petty Cash", href: "/manager/petty-cash", icon: "cash" },
+  { label: "Reports", href: "/manager/reports", icon: "reports" },
 ];
 const siteNavItems = [{ label: "Dashboard", href: "/site/dashboard", icon: "grid" }];
 
@@ -60,7 +62,10 @@ function ShellFrame({ children }: { children: ReactNode }) {
       ?? (pathname.startsWith("/factory/stock/log") ? "Log incoming stock"
         : pathname.startsWith("/factory/stock/") ? "Stock item details"
         : pathname.startsWith("/factory/stock") ? "Factory stock"
-          : pathname.startsWith("/factory/requisitions/") ? "Create dispatch"
+              : pathname.startsWith("/manager/requisitions/") ? "Create dispatch"
+                : pathname.startsWith("/manager/requisitions") ? "Requisitions"
+                  : pathname.startsWith("/manager/") ? pathname.split("/").at(-1)?.replaceAll("-", " ") ?? "Dashboard"
+              : pathname.startsWith("/factory/requisitions/") ? "Create dispatch"
             : pathname.startsWith("/factory/requisitions") ? "Requisitions"
               : pathname.startsWith("/factory/tickets") ? "Tickets"
                 : pathname.startsWith("/admin/") ? pathname.split("/").at(-1)?.replaceAll("-", " ") ?? "Dashboard" : "Dashboard");
